@@ -13,6 +13,10 @@ public class ThirdPersonController : MonoBehaviour
     public float groundedRadius = 0.5f; // Radius to check if grounded
     public LayerMask groundLayers = -1; // All layers by default
     
+    // Sword references
+    public Transform swordTransform; // Assign the sword GameObject in the inspector
+    public Collider swordCollider; // Assign the sword's collider in the inspector
+    
     // Minimum value for MoveSpeed to avoid BlendTree warning
     private const float MIN_MOVE_SPEED = 0.01f;
 
@@ -46,6 +50,42 @@ public class ThirdPersonController : MonoBehaviour
         {
             Debug.LogError("No camera assigned to ThirdPersonController and no Main Camera found!");
         }
+        
+        // Set up sword collider if assigned
+        SetupSwordCollider();
+    }
+    
+    private void SetupSwordCollider()
+    {
+        if (swordCollider != null)
+        {
+            // Make sure the sword collider is not a trigger
+            swordCollider.isTrigger = false;
+            
+            // Get or add Rigidbody to the sword
+            Rigidbody swordRb = swordCollider.GetComponent<Rigidbody>();
+            if (swordRb == null && swordTransform != null)
+            {
+                swordRb = swordTransform.gameObject.AddComponent<Rigidbody>();
+            }
+            
+            if (swordRb != null)
+            {
+                // Configure Rigidbody for proper collision
+                swordRb.isKinematic = true; // Make it kinematic so it follows animations
+                swordRb.useGravity = false; // No gravity needed
+                swordRb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // Better collision detection
+                Debug.Log("Sword Rigidbody configured successfully");
+            }
+            else
+            {
+                Debug.LogWarning("Could not find or add Rigidbody to sword");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("No sword collider assigned. Assign it in the Inspector.");
+        }
     }
 
     private void LateUpdate()
@@ -77,8 +117,7 @@ public class ThirdPersonController : MonoBehaviour
             attackCooldown -= Time.deltaTime;
             if (attackCooldown <= 0)
             {
-                isAttacking = false;
-                animator.SetBool("IsAttacking", false);
+                EndAttack();
             }
         }
 
@@ -176,6 +215,28 @@ public class ThirdPersonController : MonoBehaviour
         isAttacking = true;
         attackCooldown = 1.0f; // Adjust based on your attack animation length
         animator.SetBool("IsAttacking", true);
+        
+        // Enable sword collider during attack
+        if (swordCollider != null)
+        {
+            // Enable the collider for collision detection during attack
+            swordCollider.enabled = true;
+            Debug.Log("Sword collider enabled for attack");
+        }
+    }
+    
+    // Called when attack animation ends or is interrupted
+    private void EndAttack()
+    {
+        isAttacking = false;
+        animator.SetBool("IsAttacking", false);
+        
+        // Disable sword collider after attack
+        if (swordCollider != null)
+        {
+            swordCollider.enabled = false;
+            Debug.Log("Sword collider disabled after attack");
+        }
     }
 
     public void SetDead(bool dead)
