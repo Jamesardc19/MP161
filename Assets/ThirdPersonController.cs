@@ -17,15 +17,26 @@ public class ThirdPersonController : MonoBehaviour
     public Transform swordTransform; // Assign the sword GameObject in the inspector
     public Collider swordCollider; // Assign the sword's collider in the inspector
     
+    // Jump settings
+    public float jumpHeight = 1.2f;
+    public float jumpCooldown = 0.5f;
+    
+    // Defense settings
+    public KeyCode defendKey = KeyCode.E;
+    
     // Minimum value for MoveSpeed to avoid BlendTree warning
     private const float MIN_MOVE_SPEED = 0.01f;
 
     private CharacterController characterController;
     private Animator animator;
+    private SetupAnimatorParameters animatorSetup;
     private bool isAttacking = false;
     private bool isDead = false;
     private bool isDizzy = false;
+    private bool isDefending = false;
+    private bool isJumping = false;
     private float attackCooldown = 0f;
+    private float jumpCooldownTimer = 0f;
     private Transform cameraTransform;
     private Vector3 verticalVelocity = Vector3.zero; // For gravity
     private bool isGrounded = false;
@@ -34,6 +45,27 @@ public class ThirdPersonController : MonoBehaviour
     {
         characterController = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
+        animatorSetup = GetComponent<SetupAnimatorParameters>();
+        
+        // Add SetupAnimatorParameters component if it doesn't exist
+        if (animatorSetup == null)
+        {
+            animatorSetup = gameObject.AddComponent<SetupAnimatorParameters>();
+            Debug.Log("Added SetupAnimatorParameters component automatically");
+        }
+        
+        // Verify components are properly assigned
+        if (animator == null)
+        {
+            Debug.LogError("Animator component is missing!");
+        }
+        else
+        {
+            Debug.Log("Animator found: " + animator.runtimeAnimatorController.name);
+        }
+        
+        // Log initial state
+        InvokeRepeating("LogAnimatorState", 1.0f, 1.0f);
         
         // Set up camera reference
         if (playerCamera == null)
@@ -105,10 +137,41 @@ public class ThirdPersonController : MonoBehaviour
         // Check if grounded
         CheckGroundStatus();
 
-        // Handle attack input
-        if (Input.GetMouseButtonDown(0) && !isAttacking && !isDizzy)
+        // Update jump cooldown
+        if (jumpCooldownTimer > 0)
         {
+            jumpCooldownTimer -= Time.deltaTime;
+        }
+
+        // Handle attack input
+        if (Input.GetMouseButtonDown(0) && !isAttacking && !isDizzy && !isDefending)
+        {
+            Debug.Log("Attack button pressed");
             StartAttack();
+        }
+
+        // Handle defend input
+        if (Input.GetKeyDown(defendKey) && !isAttacking && !isDizzy)
+        {
+            Debug.Log("Defend key pressed (" + defendKey + ")");
+            isDefending = true;
+            animatorSetup.SetDefending(true);
+        }
+        else if (Input.GetKeyUp(defendKey) && isDefending)
+        {
+            Debug.Log("Defend key released");
+            isDefending = false;
+            animatorSetup.SetDefending(false);
+        }
+
+        // Handle jump input
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            Debug.Log("Space key pressed, isGrounded: " + isGrounded + ", jumpCooldown: " + jumpCooldownTimer + ", canJump: " + (!isAttacking && !isDizzy && !isDefending));
+            if (isGrounded && jumpCooldownTimer <= 0 && !isAttacking && !isDizzy && !isDefending)
+            {
+                Jump(Input.GetKey(KeyCode.LeftAlt)); // Alt+Space for spin jump
+            }
         }
 
         // Handle attack cooldown
@@ -145,6 +208,15 @@ public class ThirdPersonController : MonoBehaviour
         {
             // Reset vertical velocity when grounded
             verticalVelocity.y = -2f; // Small downward force to keep character grounded
+            
+            // Reset jumping state when grounded, but only after a delay
+            // to ensure the animation plays fully
+            if (isJumping && jumpCooldownTimer <= 0)
+            {
+                isJumping = false;
+                animatorSetup.SetJumping(false);
+                Debug.Log("Jump state reset");
+            }
         }
         else
         {
@@ -152,8 +224,8 @@ public class ThirdPersonController : MonoBehaviour
             verticalVelocity.y -= gravity * Time.deltaTime;
         }
 
-        // Only allow movement if not attacking and not dizzy
-        if (direction.magnitude >= 0.1f && !isAttacking && !isDizzy)
+        // Only allow movement if not attacking, not dizzy, and not defending
+        if (direction.magnitude >= 0.1f && !isAttacking && !isDizzy && !isDefending)
         {
             // Calculate movement direction relative to camera
             Vector3 cameraForward = Vector3.Scale(cameraTransform.forward, new Vector3(1, 0, 1)).normalized;
@@ -176,12 +248,12 @@ public class ThirdPersonController : MonoBehaviour
             
             // Ensure minimum value to avoid BlendTree warning
             speedValue = Mathf.Max(speedValue, MIN_MOVE_SPEED);
-            animator.SetFloat("MoveSpeed", speedValue);
+            animatorSetup.SetMoveSpeed(speedValue);
         }
         else if (!isAttacking)
         {
             // Set to minimum value instead of zero to avoid BlendTree warning
-            animator.SetFloat("MoveSpeed", MIN_MOVE_SPEED);
+            animatorSetup.SetMoveSpeed(MIN_MOVE_SPEED);
         }
 
         // Apply movement and gravity
@@ -199,6 +271,25 @@ public class ThirdPersonController : MonoBehaviour
         {
             SetDizzy(!isDizzy);
         }
+        
+        // Victory animation test
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            animatorSetup.TriggerVictory();
+        }
+        
+        // Level up animation test
+        if (Input.GetKeyDown(KeyCode.U))
+        {
+            animatorSetup.TriggerLevelUp();
+        }
+        
+        // Get up animation test
+        if (Input.GetKeyDown(KeyCode.G) && isDead)
+        {
+            animatorSetup.TriggerGetUp();
+            SetDead(false);
+        }
     }
 
     private void CheckGroundStatus()
@@ -214,7 +305,7 @@ public class ThirdPersonController : MonoBehaviour
     {
         isAttacking = true;
         attackCooldown = 1.0f; // Adjust based on your attack animation length
-        animator.SetBool("IsAttacking", true);
+        animatorSetup.TriggerAttack();
         
         // Enable sword collider during attack
         if (swordCollider != null)
@@ -229,7 +320,7 @@ public class ThirdPersonController : MonoBehaviour
     private void EndAttack()
     {
         isAttacking = false;
-        animator.SetBool("IsAttacking", false);
+        animatorSetup.EndAttack();
         
         // Disable sword collider after attack
         if (swordCollider != null)
@@ -242,7 +333,7 @@ public class ThirdPersonController : MonoBehaviour
     public void SetDead(bool dead)
     {
         isDead = dead;
-        animator.SetBool("IsDead", isDead);
+        animatorSetup.SetDead(isDead);
         
         // Disable character controller if dead
         if (isDead)
@@ -258,6 +349,60 @@ public class ThirdPersonController : MonoBehaviour
     public void SetDizzy(bool dizzy)
     {
         isDizzy = dizzy;
-        animator.SetBool("IsDizzy", isDizzy);
+        animatorSetup.SetDizzy(isDizzy);
+    }
+    
+    private void Jump(bool doSpin = false)
+    {
+        // Apply vertical force for jump
+        verticalVelocity.y = Mathf.Sqrt(jumpHeight * 2f * gravity);
+        
+        // Set jumping state
+        isJumping = true;
+        jumpCooldownTimer = jumpCooldown;
+        
+        // Trigger jump animation
+        if (animatorSetup != null)
+        {
+            Debug.Log("Triggering jump animation, doSpin: " + doSpin);
+            animatorSetup.SetJumping(true, doSpin);
+        }
+        else
+        {
+            Debug.LogError("animatorSetup is null when trying to jump!");
+        }
+    }
+    
+    // Called when the character is hit while defending
+    public void OnDefendHit()
+    {
+        if (isDefending)
+        {
+            animatorSetup.TriggerDefendHit();
+        }
+    }
+    
+    // Debug method to log animator state
+    private void LogAnimatorState()
+    {
+        if (animator != null)
+        {
+            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            string stateName = "Unknown";
+            
+            // Try to identify the current animation state name
+            if (stateInfo.IsName("Idle_Battle_SwordAndShield")) stateName = "Idle_Battle";
+            else if (stateInfo.IsName("JumpFullNormal_RM_SwordAndShield")) stateName = "JumpNormal";
+            else if (stateInfo.IsName("JumpFullSpin_RM_SwordAndShield")) stateName = "JumpSpin";
+            
+            Debug.Log("Current Animation State: " + stateName + ", Hash: " + stateInfo.shortNameHash + ", Time: " + stateInfo.normalizedTime);
+            Debug.Log("Jump Parameters - isJumping: " + animator.GetBool("isJumping") + 
+                      ", isSpinJump: " + animator.GetBool("isSpinJump") + 
+                      ", isGrounded: " + isGrounded + 
+                      ", jumpCooldown: " + jumpCooldownTimer);
+            Debug.Log("Other Parameters - isAttacking: " + animator.GetBool("isAttacking") + 
+                      ", isDefending: " + animator.GetBool("isDefending") + 
+                      ", MoveSpeed: " + animator.GetFloat("MoveSpeed"));
+        }
     }
 }
