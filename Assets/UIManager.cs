@@ -4,8 +4,7 @@ using UnityEngine.UI;
 public class UIManager : MonoBehaviour
 {
     [Header("Health Bar")]
-    public Slider healthBarSlider;
-    public Image healthBarFill;
+    public Image healthBarImage;
     public Gradient healthBarGradient;
     
     [Header("Stats Panel")]
@@ -32,9 +31,9 @@ public class UIManager : MonoBehaviour
         }
         
         // Connect health bar to player health manager
-        if (playerHealth != null && healthBarSlider != null)
+        if (playerHealth != null && healthBarImage != null)
         {
-            playerHealth.healthBar = healthBarSlider;
+            playerHealth.healthBarImage = healthBarImage;
         }
         
         // Connect stat texts to player stats
@@ -51,10 +50,10 @@ public class UIManager : MonoBehaviour
     void Update()
     {
         // Update health bar color based on current health percentage
-        if (healthBarFill != null && playerHealth != null && healthBarGradient != null)
+        if (healthBarImage != null && playerHealth != null && healthBarGradient != null)
         {
             float healthPercentage = playerHealth.GetHealthPercentage();
-            healthBarFill.color = healthBarGradient.Evaluate(healthPercentage);
+            healthBarImage.color = healthBarGradient.Evaluate(healthPercentage);
         }
         
         // Toggle stats panel with Tab key (can be changed to any key)

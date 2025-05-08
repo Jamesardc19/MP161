@@ -20,15 +20,20 @@ public class CharacterStats : MonoBehaviour
     public int level = 1;
     public int pointsPerLevel = 5;
     
-    // Reference to the health manager
-    private HealthManager healthManager;
+    // Reference to the health bar
+    private heathBar healthBarComponent;
     // Reference to the animator setup
     private SetupAnimatorParameters animatorSetup;
     
     void Start()
     {
-        // Get reference to HealthManager
-        healthManager = GetComponent<HealthManager>();
+        // Get reference to heathBar
+        healthBarComponent = GetComponentInChildren<heathBar>();
+        if (healthBarComponent == null)
+        {
+            // Try to find it in children of children
+            healthBarComponent = GetComponentsInChildren<heathBar>(true)[0];
+        }
         
         // Get reference to SetupAnimatorParameters
         animatorSetup = GetComponent<SetupAnimatorParameters>();
@@ -45,10 +50,10 @@ public class CharacterStats : MonoBehaviour
         health += pointsPerLevel * 10; // Increase health by a bigger amount
         level++;
         
-        // Update health manager with new max health
-        if (healthManager != null)
+        // Update health bar with new max health
+        if (healthBarComponent != null)
         {
-            healthManager.UpdateMaxHealth(health);
+            healthBarComponent.UpdateMaxHealth(health);
         }
         
         // Play level up animation if available
@@ -105,10 +110,10 @@ public class CharacterStats : MonoBehaviour
         speed += speedBonus;
         health += healthBonus;
         
-        // Update health manager with new max health
-        if (healthManager != null && healthBonus != 0)
+        // Update health bar with new max health
+        if (healthBarComponent != null && healthBonus != 0)
         {
-            healthManager.UpdateMaxHealth(health);
+            healthBarComponent.UpdateMaxHealth(health);
         }
         
         UpdateStatsDisplay();

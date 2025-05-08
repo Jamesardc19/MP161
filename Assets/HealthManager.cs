@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 public class HealthManager : MonoBehaviour
 {
-    public Slider healthBar;
+    public Image healthBarImage;
     public int maxHealth = 100;
     private int currentHealth;
     
@@ -23,10 +23,9 @@ public class HealthManager : MonoBehaviour
         playerController = GetComponent<ThirdPersonController>();
         
         // Initialize health bar
-        if (healthBar != null)
+        if (healthBarImage != null)
         {
-            healthBar.maxValue = maxHealth;
-            healthBar.value = currentHealth;
+            UpdateHealthBar();
         }
         
         // If we have character stats, sync our health with it
@@ -63,9 +62,10 @@ public class HealthManager : MonoBehaviour
     // Updates the health bar UI
     private void UpdateHealthBar()
     {
-        if (healthBar != null)
+        if (healthBarImage != null)
         {
-            healthBar.value = currentHealth;
+            // Set the fill amount based on current health percentage
+            healthBarImage.fillAmount = (float)currentHealth / maxHealth;
         }
     }
     
@@ -82,11 +82,6 @@ public class HealthManager : MonoBehaviour
     public void UpdateMaxHealth(int newMaxHealth)
     {
         maxHealth = newMaxHealth;
-        
-        if (healthBar != null)
-        {
-            healthBar.maxValue = maxHealth;
-        }
         
         // Optionally heal to new max health when leveling up
         currentHealth = maxHealth;
