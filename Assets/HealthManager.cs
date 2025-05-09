@@ -5,7 +5,7 @@ public class HealthManager : MonoBehaviour
 {
     public Image healthBarImage;
     public int maxHealth = 100;
-    private int currentHealth;
+    public int currentHealth;
     
     // Reference to the character stats system
     private CharacterStats characterStats;
@@ -67,6 +67,12 @@ public class HealthManager : MonoBehaviour
             // Set the fill amount based on current health percentage
             healthBarImage.fillAmount = (float)currentHealth / maxHealth;
         }
+    }
+    
+    // Public method to update the health bar (used by GameManager)
+    public void RefreshHealthBar()
+    {
+        UpdateHealthBar();
     }
     
     // Called when health reaches zero

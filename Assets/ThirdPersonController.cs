@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Collections;
+using System.Collections.Generic;
 
 public class ThirdPersonController : MonoBehaviour
 {
@@ -12,6 +14,12 @@ public class ThirdPersonController : MonoBehaviour
     public float groundedOffset = 0.1f; // Small offset to check if grounded
     public float groundedRadius = 0.5f; // Radius to check if grounded
     public LayerMask groundLayers = -1; // All layers by default
+    
+    // Interaction settings
+    public float elevatorInteractionDistance = 2.5f;
+    public LayerMask interactionLayers = -1; // All layers by default
+    public Transform interactionOrigin; // Usually the camera or a point in front of the character
+    public KeyCode elevatorInteractKey = KeyCode.F; // Changed from E to F for elevator interaction
     
     // Sword references
     public Transform swordTransform; // Assign the sword GameObject in the inspector
@@ -46,6 +54,12 @@ public class ThirdPersonController : MonoBehaviour
         characterController = GetComponent<CharacterController>();
         animator = GetComponent<Animator>();
         animatorSetup = GetComponent<SetupAnimatorParameters>();
+        
+        // Set interaction origin to camera if not assigned
+        if (interactionOrigin == null && playerCamera != null)
+        {
+            interactionOrigin = playerCamera.transform;
+        }
         
         // Add SetupAnimatorParameters component if it doesn't exist
         if (animatorSetup == null)
@@ -150,7 +164,7 @@ public class ThirdPersonController : MonoBehaviour
             StartAttack();
         }
 
-        // Handle defend input
+        // Handle defend input (now using a different key than interact)
         if (Input.GetKeyDown(defendKey) && !isAttacking && !isDizzy)
         {
             Debug.Log("Defend key pressed (" + defendKey + ")");
@@ -162,6 +176,20 @@ public class ThirdPersonController : MonoBehaviour
             Debug.Log("Defend key released");
             isDefending = false;
             animatorSetup.SetDefending(false);
+        }
+        
+        // Handle interaction with elevators only (doors are automatic)
+        if (Input.GetKeyDown(elevatorInteractKey))
+        {
+            Debug.Log("F key pressed for elevator interaction");
+            if (!isAttacking && !isDizzy)
+            {
+                TryElevatorInteract();
+            }
+            else
+            {
+                Debug.Log("Cannot interact while attacking or dizzy");
+            }
         }
 
         // Handle jump input
@@ -397,12 +425,119 @@ public class ThirdPersonController : MonoBehaviour
             
             Debug.Log("Current Animation State: " + stateName + ", Hash: " + stateInfo.shortNameHash + ", Time: " + stateInfo.normalizedTime);
             Debug.Log("Jump Parameters - isJumping: " + animator.GetBool("isJumping") + 
-                      ", isSpinJump: " + animator.GetBool("isSpinJump") + 
-                      ", isGrounded: " + isGrounded + 
-                      ", jumpCooldown: " + jumpCooldownTimer);
-            Debug.Log("Other Parameters - isAttacking: " + animator.GetBool("isAttacking") + 
-                      ", isDefending: " + animator.GetBool("isDefending") + 
-                      ", MoveSpeed: " + animator.GetFloat("MoveSpeed"));
+                      ", isDizzy: " + animator.GetBool("isDizzy"));
+        }
+    }
+    
+    // Interaction system for elevators only
+    private void TryElevatorInteract()
+    {
+        if (interactionOrigin == null)
+        {
+            Debug.LogWarning("Interaction origin not set");
+            return;
+        }
+        
+        Debug.Log("Trying elevator interaction from: " + interactionOrigin.position + ", direction: " + interactionOrigin.forward + ", distance: " + elevatorInteractionDistance);
+        
+        // Draw a debug ray in the scene view to visualize the interaction ray
+        Debug.DrawRay(interactionOrigin.position, interactionOrigin.forward * elevatorInteractionDistance, Color.red, 2.0f);
+        
+        RaycastHit hit;
+        if (Physics.Raycast(interactionOrigin.position, interactionOrigin.forward, out hit, elevatorInteractionDistance, interactionLayers))
+        {
+            Debug.Log("Interaction raycast hit: " + hit.transform.name + " at distance " + hit.distance);
+            Debug.Log("Hit object layer: " + LayerMask.LayerToName(hit.transform.gameObject.layer));
+            
+            // Check for elevator buttons
+            if (hit.collider.gameObject.name.StartsWith("Button floor") || hit.collider.gameObject.name.StartsWith("button floor"))
+            {
+                Debug.Log("Found elevator button: " + hit.collider.gameObject.name);
+                
+                var parentScript = hit.transform.GetComponent<pass_on_parent>();
+                if (parentScript != null)
+                {
+                    Debug.Log("Found pass_on_parent component");
+                    
+                    if (parentScript.MyParent != null)
+                    {
+                        Debug.Log("MyParent reference is set to: " + parentScript.MyParent.name);
+                        
+                        // Try both original and fixed controller scripts
+                        var originalController = parentScript.MyParent.GetComponent<evelator_controll>();
+                        var fixedController = parentScript.MyParent.GetComponent<evelator_controll_fixed>();
+                        
+                        if (originalController != null && originalController.enabled)
+                        {
+                            Debug.Log("Using original elevator controller");
+                            originalController.AddTaskEve(hit.collider.gameObject.name);
+                            Debug.Log("Pressed elevator button: " + hit.collider.gameObject.name);
+                        }
+                        else if (fixedController != null && fixedController.enabled)
+                        {
+                            Debug.Log("Using fixed elevator controller");
+                            fixedController.AddTaskEve(hit.collider.gameObject.name);
+                            Debug.Log("Pressed elevator button: " + hit.collider.gameObject.name);
+                        }
+                        else
+                        {
+                            Debug.LogError("No active elevator controller found on parent: " + parentScript.MyParent.name);
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("pass_on_parent.MyParent is null on " + hit.collider.gameObject.name);
+                    }
+                }
+                else
+                {
+                    Debug.LogError("No pass_on_parent component found on " + hit.collider.gameObject.name);
+                }
+            }
+            else
+            {
+                Debug.Log("Hit object is not an elevator button: " + hit.collider.gameObject.name);
+            }
+        }
+        else
+        {
+            Debug.Log("No object hit by interaction ray");
+            
+            // Let's try a more generous raycast to see what's around
+            RaycastHit[] hits = Physics.SphereCastAll(interactionOrigin.position, 1.0f, interactionOrigin.forward, elevatorInteractionDistance);
+            if (hits.Length > 0)
+            {
+                Debug.Log("Nearby objects detected with SphereCast:");
+                foreach (RaycastHit nearbyHit in hits)
+                {
+                    Debug.Log("- " + nearbyHit.collider.gameObject.name + " at distance " + nearbyHit.distance);
+                }
+            }
+        }
+    }
+    
+    // Handle automatic door opening on collision
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        // Check if we hit a door
+        if (hit.gameObject.CompareTag("door"))
+        {
+            Door doorScript = hit.gameObject.GetComponent<Door>();
+            if (doorScript != null)
+            {
+                doorScript.ActionDoor();
+                Debug.Log("Automatically interacted with door: " + hit.gameObject.name);
+            }
+        }
+    }
+    
+    // Draw interaction ray in Scene view for debugging
+    private void OnDrawGizmos()
+    {
+        if (interactionOrigin != null)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawRay(interactionOrigin.position, interactionOrigin.forward * elevatorInteractionDistance);
         }
     }
 }

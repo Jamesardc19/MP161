@@ -84,6 +84,12 @@ public class CharacterStats : MonoBehaviour
             levelText.text = "Level: " + level.ToString();
     }
     
+    // Public method to update the stats UI (used by GameManager)
+    public void UpdateStatsUI()
+    {
+        UpdateStatsDisplay();
+    }
+    
     // Get damage reduction from defense (can be used in combat calculations)
     public float GetDamageReduction()
     {

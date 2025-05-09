@@ -11,6 +11,7 @@ TagManager:
   - button f2
   - button f1
   - button f6
+  - InventoryManager
   layers:
   - Default
   - TransparentFX
@@ -19,7 +20,7 @@ TagManager:
   - Water
   - UI
   - Sword
-  - 
+  - InventoryManager
   - 
   - 
   - 
