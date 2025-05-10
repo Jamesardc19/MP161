@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: Transistor
   m_EditorClassIdentifier: 
   itemName: Transistor
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: c9883ef08cfb3e54296c1c62c49eedca, type: 3}
   description: An electronic component used for amplification.
   itemType: 2

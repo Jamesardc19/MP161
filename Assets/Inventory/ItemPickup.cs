@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class ItemPickup : MonoBehaviour
 {
+    [HideInInspector]
+    public string floorName; // Will be set by FloorLevelManager
     public Item item;  // Reference to the item this object represents
     
     [Header("Visual Effects")]

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Bolt and Nut
   m_EditorClassIdentifier: 
   itemName: Bolt and Nut
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 4efe67f63b9af564e87f3da2df2084af, type: 3}
   description: A metal fastener with a threaded shaft. A small metal piece with a
     threaded hole.
   itemType: 0
